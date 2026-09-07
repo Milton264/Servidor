@@ -3,6 +3,7 @@ name: Build Biblioteca AWS
 on:
   push:
     branches:
+      - main
       - biblioteca-aws-build
     paths:
       - 'biblioteca-build/**'
