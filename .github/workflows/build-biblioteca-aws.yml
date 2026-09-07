@@ -1,0 +1,60 @@
+name: Build Biblioteca AWS
+
+on:
+  push:
+    branches:
+      - biblioteca-aws-build
+    paths:
+      - 'biblioteca-build/**'
+      - '.github/workflows/build-biblioteca-aws.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Reconstruct source archive
+        shell: bash
+        run: |
+          cat biblioteca-build/source/chunk_*.txt > biblioteca-build/source/source.b64
+          base64 -d biblioteca-build/source/source.b64 > BibliotecaUniversitaria_source.zip
+          mkdir -p BibliotecaUniversitaria
+          unzip -q BibliotecaUniversitaria_source.zip -d BibliotecaUniversitaria
+          test -f BibliotecaUniversitaria/BibliotecaUniversitaria.csproj
+
+      - name: Restore
+        run: dotnet restore BibliotecaUniversitaria/BibliotecaUniversitaria.csproj
+
+      - name: Publish
+        run: dotnet publish BibliotecaUniversitaria/BibliotecaUniversitaria.csproj -c Release -o publish --no-restore
+
+      - name: Prepare Elastic Beanstalk bundle
+        shell: bash
+        run: |
+          echo 'web: dotnet BibliotecaUniversitaria.dll' > publish/Procfile
+          test -f publish/BibliotecaUniversitaria.runtimeconfig.json
+          test -f publish/BibliotecaUniversitaria.dll
+          cd publish
+          zip -qr ../BibliotecaUniversitaria_AWS.zip .
+          cd ..
+          unzip -l BibliotecaUniversitaria_AWS.zip | grep 'BibliotecaUniversitaria.runtimeconfig.json'
+          unzip -l BibliotecaUniversitaria_AWS.zip | grep 'Procfile'
+
+      - name: Upload AWS deploy ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: BibliotecaUniversitaria_AWS
+          path: BibliotecaUniversitaria_AWS.zip
+          if-no-files-found: error
+          retention-days: 7
