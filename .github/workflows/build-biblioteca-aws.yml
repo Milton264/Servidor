@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - biblioteca-aws-build
     paths:
       - 'biblioteca-build/**'
       - '.github/workflows/build-biblioteca-aws.yml'
@@ -34,28 +33,30 @@ jobs:
           unzip -q BibliotecaUniversitaria_source.zip -d BibliotecaUniversitaria
           test -f BibliotecaUniversitaria/BibliotecaUniversitaria.csproj
 
-      - name: Restore
-        run: dotnet restore BibliotecaUniversitaria/BibliotecaUniversitaria.csproj
+      - name: Restore for Linux x64
+        run: dotnet restore BibliotecaUniversitaria/BibliotecaUniversitaria.csproj -r linux-x64
 
-      - name: Publish
-        run: dotnet publish BibliotecaUniversitaria/BibliotecaUniversitaria.csproj -c Release -o publish --no-restore
+      - name: Publish self-contained Linux x64
+        run: dotnet publish BibliotecaUniversitaria/BibliotecaUniversitaria.csproj -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=false -o publish --no-restore
 
       - name: Prepare Elastic Beanstalk bundle
         shell: bash
         run: |
-          echo 'web: dotnet BibliotecaUniversitaria.dll' > publish/Procfile
+          chmod +x publish/BibliotecaUniversitaria
+          echo 'web: ./BibliotecaUniversitaria --urls http://0.0.0.0:5000' > publish/Procfile
           test -f publish/BibliotecaUniversitaria.runtimeconfig.json
+          test -f publish/BibliotecaUniversitaria
           test -f publish/BibliotecaUniversitaria.dll
           cd publish
-          zip -qr ../BibliotecaUniversitaria_AWS.zip .
+          zip -qr ../BibliotecaUniversitaria_AWS_SELFCONTAINED.zip .
           cd ..
-          unzip -l BibliotecaUniversitaria_AWS.zip | grep 'BibliotecaUniversitaria.runtimeconfig.json'
-          unzip -l BibliotecaUniversitaria_AWS.zip | grep 'Procfile'
+          unzip -l BibliotecaUniversitaria_AWS_SELFCONTAINED.zip | grep 'BibliotecaUniversitaria.runtimeconfig.json'
+          unzip -l BibliotecaUniversitaria_AWS_SELFCONTAINED.zip | grep 'Procfile'
 
       - name: Upload AWS deploy ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: BibliotecaUniversitaria_AWS
-          path: BibliotecaUniversitaria_AWS.zip
+          name: BibliotecaUniversitaria_AWS_SELFCONTAINED
+          path: BibliotecaUniversitaria_AWS_SELFCONTAINED.zip
           if-no-files-found: error
           retention-days: 7
